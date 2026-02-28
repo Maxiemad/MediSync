@@ -309,9 +309,10 @@ Response includes `dosage_warnings` (e.g. daily dose exceeds max) and `contraind
 
 | Member Name | Role | Responsibilities |
 |-------------|------|------------------|
-| Akanksha | Team Lead | Architecture design, backend logic |
-|  | Frontend Dev | UI + graph visualization |
+| Akanksha Sharma| Team Lead | Architecture design, backend logic |
 | Pushkar Sharma | ML Engineer | Risk scoring + NLP module |
+| Siddharth Pareek | Frontend Dev | UI + graph visualization |
+
 
 ---
 
