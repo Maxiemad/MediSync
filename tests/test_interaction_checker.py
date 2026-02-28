@@ -59,7 +59,7 @@ def test_valid_interaction_returns_structure():
     ok &= run_test("Has risk_explanation", "risk_explanation" in result)
     ok &= run_test("Has recommendation", "recommendation" in result)
     ok &= run_test("Has highest_risk_pair", "highest_risk_pair" in result)
-    ok &= run_test("overall_risk is valid", result["overall_risk"] in ("Mild", "Moderate", "Severe", "Critical"))
+    ok &= run_test("overall_risk is valid (3 classes)", result["overall_risk"] in ("Mild", "Moderate", "Severe"))
     ok &= run_test("total_score is number", isinstance(result["total_score"], (int, float)))
     ok &= run_test("total_pairs = n*(n-1)/2", result["total_pairs"] == 1)  # 2 drugs → 1 pair
     return ok
@@ -91,7 +91,7 @@ def test_pair_not_found():
     )
     ok &= run_test(
         "Unknown not counted as Mild",
-        result.get("overall_risk") in ("Mild", "Moderate", "Severe", "Critical")
+        result.get("overall_risk") in ("Mild", "Moderate", "Severe")
     )
     return ok
 
@@ -141,30 +141,37 @@ def test_2_to_10_drugs():
 
 
 def test_total_score_and_moderate_count():
-    """8️⃣ total_score = sum of known interaction scores; moderate_count and overall_risk; Unknown excluded."""
-    print("\n--- 8. total_score & moderate_count & overall_risk ---")
+    """8️⃣ total_score = sum of known interaction scores; mild/moderate/severe counts and overall_risk (3 classes); Unknown excluded."""
+    print("\n--- 8. total_score & counts & overall_risk ---")
     result = check_drug_interactions(["Ibuprofen", "Warfarin", "Digoxin"])
     if "error" in result:
         return run_test("No error", False, result.get("error"))
     total = result["total_score"]
+    mild_count = result.get("mild_count", 0)
     moderate_count = result["moderate_count"]
+    severe_count = result.get("severe_count", 0)
     overall = result["overall_risk"]
-    # total_score = sum of (1 for Mild, 2 for Moderate) over known interactions only; Unknown adds nothing
+    # total_score = sum of (1 Mild, 2 Moderate, 3 Severe) over known interactions only; Unknown adds nothing
     expected_score = 0
-    expected_moderate = 0
+    expected_mild = expected_moderate = expected_severe = 0
     for p in result["pair_results"]:
         sev = p.get("severity")
         if sev == "Mild":
             expected_score += 1
+            expected_mild += 1
         elif sev == "Moderate":
             expected_score += 2
             expected_moderate += 1
+        elif sev == "Severe":
+            expected_score += 3
+            expected_severe += 1
         # "Unknown" adds nothing
     ok = run_test("total_score matches sum of known pair severities", total == expected_score)
+    ok &= run_test("mild_count matches Mild pairs", mild_count == expected_mild)
     ok &= run_test("moderate_count matches Moderate pairs", moderate_count == expected_moderate)
-    ok &= run_test("overall_risk consistent with moderate_count",
-                   (moderate_count >= 1 and overall in ("Moderate", "Severe", "Critical")) or
-                   (moderate_count == 0 and overall == "Mild"))
+    ok &= run_test("severe_count matches Severe pairs", severe_count == expected_severe)
+    ok &= run_test("overall_risk is one of Mild, Moderate, Severe",
+                   overall in ("Mild", "Moderate", "Severe"))
     return ok
 
 
@@ -178,7 +185,7 @@ def test_graph_edges_only_known():
     known = result["known_pairs"]
     ok = run_test("Edge count = known_pairs", len(edges) == known)
     for e in edges:
-        ok &= run_test("Edge has weight", "weight" in e and e["weight"] in (1, 2))
+        ok &= run_test("Edge has weight", "weight" in e and e["weight"] in (1, 2, 3))
     return ok
 
 

@@ -18,12 +18,11 @@ logger = logging.getLogger(__name__)
 # Base severity mapping (numeric score per interaction) – used for total_score and graph edge weight
 SEVERITY_SCORE = {"Mild": 1, "Moderate": 2, "Severe": 3}
 
-# Color coding for graph (hex) – use in UI for nodes/edges by severity
+# Color coding for graph (hex) – use in UI for nodes/edges by severity (3 classes only)
 SEVERITY_COLORS = {
     "Mild": "#22c55e",
     "Moderate": "#f59e0b",
     "Severe": "#ef4444",
-    "Critical": "#7f1d1d",
     "Unknown": "#6b7280",
 }
 
@@ -70,14 +69,24 @@ def get_cached_data() -> tuple[dict, dict]:
     return _interactions_cache, _lower_to_canonical_cache
 
 
-def _overall_risk(moderate_count: int, severe_count: int = 0) -> str:
-    if severe_count >= 2 or moderate_count >= 5:
-        return "Critical"
-    if severe_count >= 1 or moderate_count >= 3:
-        return "Severe"
-    if moderate_count >= 1:
+def _overall_risk(mild_count: int, moderate_count: int, severe_count: int) -> str:
+    """
+    Overall risk: 3 classes only (Mild, Moderate, Severe).
+    - Base: all mild → Mild; any moderate (no severe) → Moderate; any severe → Severe.
+    - Escalation: ≥3 Mild → +1 level (Mild→Moderate); ≥2 Moderate → +1 level (Moderate→Severe); Severe → no escalation.
+    """
+    if severe_count >= 1:
+        base = "Severe"
+    elif moderate_count >= 1:
+        base = "Moderate"
+    else:
+        base = "Mild"
+
+    if base == "Mild" and mild_count >= 3:
         return "Moderate"
-    return "Mild"
+    if base == "Moderate" and moderate_count >= 2:
+        return "Severe"
+    return base
 
 
 def _confidence_level(confidence_percentage: float) -> str:
@@ -93,8 +102,7 @@ def _build_risk_explanation(overall: str, unknown_pairs: int) -> str:
     base = {
         "Mild": "Low interaction risk detected. Minimal clinical concern based on available data.",
         "Moderate": "Moderate interaction risk detected. Monitoring may be required.",
-        "Severe": "Multiple moderate interactions detected. Increased cumulative toxicity risk.",
-        "Critical": "High polypharmacy risk detected. Immediate prescription review recommended.",
+        "Severe": "Severe interaction risk detected. Increased cumulative toxicity risk.",
     }.get(overall, "")
     if unknown_pairs > 0:
         base += " Note: Some drug pairs lack interaction data in the current offline database."
@@ -106,7 +114,6 @@ def _build_recommendation(overall: str) -> str:
         "Mild": "Continue current regimen. No changes required based on available interaction data.",
         "Moderate": "Consider monitoring patient response. Review dosing if clinically indicated.",
         "Severe": "Review prescription and monitor patient. Consider alternatives or dose adjustments.",
-        "Critical": "Immediate prescription review recommended. Consult specialist before continuing.",
     }.get(overall, "Review prescription and monitor patient.")
 
 
@@ -122,12 +129,19 @@ def check_drug_interactions(
     drug_list: list[str],
     interactions: dict | None = None,
     lower_to_canonical: dict | None = None,
+    drug_doses: list[dict[str, Any]] | None = None,
+    patient_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Check interactions for a list of drugs (2–10). Production-ready.
 
+    Optional:
+      - drug_doses: [{"drug": "Ibuprofen", "daily_mg": 400}] for dosage limit checks.
+      - patient_context: {"pregnancy": true, "severe_liver_impairment": true} for contraindication flags.
+
     Returns:
-        - On success: full structure with pair_results, graph_data, risk_explanation, etc.
+        - On success: full structure with pair_results, graph_data, risk_explanation,
+          dosage_warnings, contraindication_warnings, etc.
         - On error: { "error": "..." }
     """
     interactions, lower_to_canonical = get_cached_data() if (interactions is None or lower_to_canonical is None) else (interactions, lower_to_canonical)
@@ -167,6 +181,7 @@ def check_drug_interactions(
     interactions_not_found: list[dict[str, Any]] = []
 
     total_score = 0
+    mild_count = 0
     moderate_count = 0
     severe_count = 0
     known_pairs = 0
@@ -178,11 +193,17 @@ def check_drug_interactions(
         entry = _lookup_interaction(interactions, drug_a, drug_b)
 
         if entry is not None:
-            severity = entry.get("severity", "Moderate")
+            raw_severity = entry.get("severity", "Moderate")
+            # Normalize to 3 classes only: Critical → Severe
+            severity = "Severe" if raw_severity == "Critical" else raw_severity
+            if severity not in SEVERITY_SCORE:
+                severity = "Moderate"
             description = entry.get("description", "")
             weight = SEVERITY_SCORE.get(severity, 2)
             total_score += weight
-            if severity == "Moderate":
+            if severity == "Mild":
+                mild_count += 1
+            elif severity == "Moderate":
                 moderate_count += 1
             elif severity == "Severe":
                 severe_count += 1
@@ -226,7 +247,7 @@ def check_drug_interactions(
                 "description": "No interaction data available in the current database.",
             })
 
-    overall = _overall_risk(moderate_count, severe_count)
+    overall = _overall_risk(mild_count, moderate_count, severe_count)
     confidence_percentage = round((known_pairs / total_pairs) * 100, 2) if total_pairs > 0 else 100.0
     confidence_level = _confidence_level(confidence_percentage)
     graph_density = round(known_pairs / total_pairs, 2) if total_pairs > 0 else 1.0
@@ -246,6 +267,7 @@ def check_drug_interactions(
         "confidence_level": confidence_level,
         "graph_density": graph_density,
         "total_score": total_score,
+        "mild_count": mild_count,
         "moderate_count": moderate_count,
         "severe_count": severe_count,
         "overall_risk": overall,
@@ -256,6 +278,23 @@ def check_drug_interactions(
     }
     if unknown_pairs > 0:
         result["warning"] = "Some drug pairs are missing interaction data."
+
+    # Dosage and contraindication checks (optional modules)
+    try:
+        from backend.dosage_contraindications import (
+            check_dosage_warnings,
+            check_contraindication_warnings,
+        )
+        result["dosage_warnings"] = check_dosage_warnings(
+            unique_drugs, drug_doses, lower_to_canonical
+        )
+        result["contraindication_warnings"] = check_contraindication_warnings(
+            unique_drugs, patient_context
+        )
+    except Exception as e:
+        logger.debug("Dosage/contraindication checks skipped: %s", e)
+        result["dosage_warnings"] = []
+        result["contraindication_warnings"] = []
 
     logger.info(
         "check_interactions: drugs=%s total_pairs=%d known_pairs=%d overall_risk=%s",

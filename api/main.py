@@ -23,6 +23,7 @@ from backend.interaction_checker import (
     get_cached_data,
     init_interaction_data,
 )
+from backend.dosage_contraindications import init_dosage_contraindications
 
 # API key for authentication (set via env var or use default for demo)
 API_KEY = os.getenv("MEDISYNC_API_KEY", "medisync-demo-key-2024")
@@ -32,6 +33,7 @@ API_KEY = os.getenv("MEDISYNC_API_KEY", "medisync-demo-key-2024")
 async def lifespan(app: FastAPI):
     """Preload dataset at startup."""
     init_interaction_data()
+    init_dosage_contraindications()
     yield
 
 
@@ -59,6 +61,8 @@ def verify_api_key(x_api_key: str | None = None) -> None:
 
 class CheckRequest(BaseModel):
     drugs: list[str]
+    drug_doses: list[dict] | None = None   # optional: [{"drug": "Ibuprofen", "daily_mg": 400}]
+    patient_context: dict | None = None   # optional: {"pregnancy": true, "severe_liver_impairment": true}
 
 
 class CheckResponse(BaseModel):
@@ -81,7 +85,11 @@ async def check_interactions(
     Returns pair_results, graph_data, overall_risk, etc.
     """
     verify_api_key(x_api_key)
-    result = check_drug_interactions(body.drugs)
+    result = check_drug_interactions(
+        body.drugs,
+        drug_doses=body.drug_doses,
+        patient_context=body.patient_context,
+    )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
@@ -108,12 +116,11 @@ async def get_drug(
     }
 
 
-# Severity color map for frontend (same as backend.SEVERITY_COLORS)
+# Severity color map for frontend (same as backend – 3 classes only)
 SEVERITY_COLORS = {
     "Mild": "#22c55e",
     "Moderate": "#f59e0b",
     "Severe": "#ef4444",
-    "Critical": "#7f1d1d",
     "Unknown": "#6b7280",
 }
 

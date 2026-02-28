@@ -1,0 +1,36 @@
+{
+  "Warfarin": {
+    "pregnancy": "Contraindicated",
+    "severe_liver_impairment": "Avoid",
+    "active_bleeding": "Contraindicated"
+  },
+  "Ibuprofen": {
+    "pregnancy": "Avoid in third trimester",
+    "severe_renal_impairment": "Avoid",
+    "active_peptic_ulcer": "Contraindicated"
+  },
+  "Aspirin": {
+    "pregnancy": "Avoid in third trimester",
+    "active_bleeding": "Contraindicated",
+    "severe_liver_impairment": "Caution"
+  },
+  "Metformin": {
+    "severe_renal_impairment": "Contraindicated",
+    "severe_liver_impairment": "Avoid"
+  },
+  "Digoxin": {
+    "ventricular_fibrillation": "Contraindicated",
+    "severe_renal_impairment": "Dose reduction required"
+  },
+  "Amoxicillin": {
+    "penicillin_allergy": "Contraindicated"
+  },
+  "Lisinopril": {
+    "pregnancy": "Contraindicated",
+    "bilateral_renal_artery_stenosis": "Contraindicated"
+  },
+  "Atorvastatin": {
+    "pregnancy": "Contraindicated",
+    "active_liver_disease": "Contraindicated"
+  }
+}

@@ -120,11 +120,35 @@ def test_check_pair_interaction_found():
 
 def test_check_pair_unknown():
     """GET /check-pair returns interaction_found: false when no interaction in DB."""
-    r = client.get("/check-pair?drug1=Ibuprofen&drug2=Warfarin", headers=HEADERS)
+    # Use two drugs that exist in DB but have no interaction (e.g. Lisinopril, Metformin in sample)
+    r = client.get("/check-pair?drug1=Lisinopril&drug2=Metformin", headers=HEADERS)
     assert r.status_code == 200
     data = r.json()
     assert data.get("interaction_found") is False or data.get("severity") == "Unknown"
     assert "description" in data
+
+
+def test_check_interactions_dosage_and_contraindication_warnings():
+    """POST /check-interactions with drug_doses and patient_context returns dosage_warnings and contraindication_warnings."""
+    r = client.post(
+        "/check-interactions",
+        json={
+            "drugs": ["Ibuprofen", "Warfarin"],
+            "drug_doses": [{"drug": "Ibuprofen", "daily_mg": 4000}],
+            "patient_context": {"pregnancy": True},
+        },
+        headers=HEADERS,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert "dosage_warnings" in data
+    assert "contraindication_warnings" in data
+    # Ibuprofen max_daily_mg 3200; 4000 exceeds it
+    assert len(data["dosage_warnings"]) >= 1
+    assert any("Ibuprofen" in w.get("drug", "") for w in data["dosage_warnings"])
+    # Warfarin contraindicated in pregnancy
+    assert len(data["contraindication_warnings"]) >= 1
+    assert any("Warfarin" in w.get("drug", "") for w in data["contraindication_warnings"])
 
 
 if __name__ == "__main__":

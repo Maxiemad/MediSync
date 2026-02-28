@@ -1,0 +1,12 @@
+{
+  "Ibuprofen": { "max_daily_mg": 3200, "unit": "mg", "route": "oral" },
+  "Warfarin": { "max_daily_mg": 20, "unit": "mg", "route": "oral" },
+  "Digoxin": { "max_daily_mg": 0.5, "unit": "mg", "route": "oral" },
+  "Aspirin": { "max_daily_mg": 4000, "unit": "mg", "route": "oral" },
+  "Metformin": { "max_daily_mg": 2550, "unit": "mg", "route": "oral" },
+  "Amoxicillin": { "max_daily_mg": 3000, "unit": "mg", "route": "oral" },
+  "Lisinopril": { "max_daily_mg": 80, "unit": "mg", "route": "oral" },
+  "Amlodipine": { "max_daily_mg": 10, "unit": "mg", "route": "oral" },
+  "Omeprazole": { "max_daily_mg": 80, "unit": "mg", "route": "oral" },
+  "Atorvastatin": { "max_daily_mg": 80, "unit": "mg", "route": "oral" }
+}

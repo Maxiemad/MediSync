@@ -56,8 +56,8 @@ Represent drugs as nodes and interactions as weighted edges. Apply severity-base
 **Key Features**
 - ✔ Offline-first system
 - ✔ Drug–drug interaction detection
-- ✔ Contraindication identification
-- ✔ Dosage conflict detection
+- ✔ Contraindication identification (patient context: pregnancy, liver/renal impairment, etc.)
+- ✔ Dosage conflict detection (max daily dose checks)
 - ✔ Severity classification (Mild / Moderate / Severe)
 - ✔ Graph-based visualization
 - ✔ Risk scoring engine
@@ -86,14 +86,20 @@ User → Frontend → Backend → Risk Engine → Database → Response
 
 **ER Diagram**  
 
+The ER diagram is aligned with the **current project structure** (JSON data files and backend usage). Full description, Mermaid source, and file mapping: [docs/er_diagram.md](docs/er_diagram.md).
+
 ![ER Diagram](docs/er_diagram.png)
 
-**ER Diagram Description**
-- **Entities:** Drug, Interaction, Contraindication, DosageLimit
+**ER Diagram Description (project structure)**
+- **Entities:**  
+  - **Drug** – `name` (PK, natural key; used as key in all three data files)  
+  - **Interaction** – `drug_A`, `drug_B`, `severity`, `description` (from `data/drug_interactions.json`)  
+  - **DosageLimit** – `drug_name`, `max_daily_mg`, `unit`, `route` (from `data/drug_dosage_limits.json`)  
+  - **Contraindication** – `drug_name`, `condition`, `advice` (from `data/drug_contraindications.json`)  
 - **Relationships:**
-  - Drug ↔ Interaction (Many-to-Many)
+  - Drug ↔ Interaction (Many-to-Many; one interaction links two drugs)
+  - Drug → DosageLimit (One-to-One, optional)
   - Drug → Contraindication (One-to-Many)
-  - Drug → DosageLimit (One-to-One)
 
 ---
 
@@ -122,13 +128,32 @@ Drug-Drug Interactions (Kaggle)
 - Removal of duplicate interaction entries
 - **Curated subset:** A curated subset of the Kaggle Drug-Drug Interaction dataset was structured into an optimized O(1) lookup map to enable efficient offline conflict detection. Keeps 5k–20k interactions with mixed severity and common drugs—reduces repo size, enables instant lookup, no full-table scan.
 
-```bash
-# Load dataset and export optimized JSON map to data/
-pip install -r requirements.txt
-python scripts/load_dataset.py
-```
+**Dataset Reproducibility (important for judging)**  
+You can regenerate `data/drug_interactions.json` in one of three ways:
 
-**Output Format** (O(1) lookup, ~3MB):
+1. **Script (recommended)**  
+   ```bash
+   python scripts/load_dataset.py
+   ```  
+   The script will:
+   - Use the **Kaggle API** if installed and configured (`pip install kaggle`, then place `kaggle.json` in `~/.kaggle/`). It downloads [mghobashy/drug-drug-interactions](https://www.kaggle.com/datasets/mghobashy/drug-drug-interactions) and converts the CSV to the JSON format below.
+   - Otherwise look for **any CSV** in `data/` (e.g. `ddi_raw.csv`, `drug_interactions.csv`). Expected columns (case-insensitive): two drug columns (`drug_1`/`drug_2` or `Drug1`/`Drug2`), optional `severity`, optional `description` or `interaction`.
+   - If no Kaggle and no CSV are available, use **demo mode** to build a small reproducible set:
+   ```bash
+   python scripts/load_dataset.py --sample
+   ```
+   Or point to a specific CSV: `python scripts/load_dataset.py --csv data/my_ddi.csv`.
+
+2. **Kaggle + transformation steps**  
+   - Download the dataset from [Kaggle – Drug-Drug Interactions](https://www.kaggle.com/datasets/mghobashy/drug-drug-interactions).  
+   - Place the CSV in `data/`.  
+   - Run `python scripts/load_dataset.py` (or `--csv data/<your_file>.csv`).  
+   - Transformation: normalize drug names (title-case, trim), map severity to Mild/Moderate/Severe, build symmetric O(1) lookup map.
+
+3. **Pre-generated JSON**  
+   A pre-built `data/drug_interactions.json` may be committed to the repo; cloning then works without running the script. Running `load_dataset.py` (with Kaggle or CSV) reproduces or updates it.
+
+**Output Format** (O(1) lookup):
 ```json
 {
   "Aspirin": {
@@ -136,6 +161,22 @@ python scripts/load_dataset.py
   }
 }
 ```
+
+---
+
+### Dosage limits and contraindications
+
+- **Dosage**  
+  `data/drug_dosage_limits.json` stores per-drug `max_daily_mg` (and optional `unit`, `route`).  
+  In `POST /check-interactions`, send optional `drug_doses`: `[{"drug": "Ibuprofen", "daily_mg": 400}]`.  
+  The response includes `dosage_warnings` when a supplied dose exceeds the stored maximum.
+
+- **Contraindications**  
+  `data/drug_contraindications.json` stores per-drug conditions (e.g. `pregnancy`, `severe_liver_impairment`, `penicillin_allergy`) and advice (e.g. "Contraindicated", "Avoid").  
+  Send optional `patient_context`: `{"pregnancy": true, "severe_liver_impairment": true}`.  
+  The response includes `contraindication_warnings` for each drug that has a contraindication matching the patient context.
+
+Both data files are optional; if missing, the API still returns interaction results with empty `dosage_warnings` and `contraindication_warnings`.
 
 ---
 
@@ -170,7 +211,7 @@ Hybrid Rule-Based + Risk Scoring Engine
 | **Frontend** | React, Tailwind CSS, React Flow (graph visualization) |
 | **Backend** | FastAPI (Python) |
 | **ML/AI** | Python, rule-based risk scoring engine |
-| **Database** | JSON (offline) – `data/drug_interactions.json` |
+| **Database** | JSON (offline) – `data/drug_interactions.json`, `data/drug_dosage_limits.json`, `data/drug_contraindications.json` |
 | **Auth** | API key (`X-API-Key` header) |
 | **Deployment** | Uvicorn, localhost:8000 |
 
@@ -182,8 +223,9 @@ Hybrid Rule-Based + Risk Scoring Engine
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `POST /check-interactions` | POST | Required | Input: `{"drugs": ["A", "B"]}` → interaction report |
+| `POST /check-interactions` | POST | Required | Input: `{"drugs": ["A", "B"], "drug_doses": optional, "patient_context": optional}` → interaction report + dosage/contraindication warnings |
 | `GET /drug/{name}` | GET | Required | Returns drug metadata |
+| `GET /check-pair` | GET | Required | Query `drug1`, `drug2` → single pair interaction |
 | `GET /health` | GET | No | System health check |
 
 **Authentication**  
@@ -196,13 +238,22 @@ python run_api.py
 # Or: uvicorn api.main:app --reload --port 8000
 ```
 
-**Example request**
+**Example request (interactions only)**
 ```bash
 curl -X POST http://localhost:8000/check-interactions \
   -H "X-API-Key: medisync-demo-key-2024" \
   -H "Content-Type: application/json" \
   -d '{"drugs": ["Ibuprofen", "Warfarin", "Digoxin"]}'
 ```
+
+**Example with dosage and contraindications**
+```bash
+curl -X POST http://localhost:8000/check-interactions \
+  -H "X-API-Key: medisync-demo-key-2024" \
+  -H "Content-Type: application/json" \
+  -d '{"drugs": ["Ibuprofen", "Warfarin"], "drug_doses": [{"drug": "Ibuprofen", "daily_mg": 4000}], "patient_context": {"pregnancy": true}}'
+```
+Response includes `dosage_warnings` (e.g. daily dose exceeds max) and `contraindication_warnings` (e.g. Warfarin in pregnancy).
 
 **Testing**
 - Unit tests: `python tests/test_interaction_checker.py` — 10 test groups
