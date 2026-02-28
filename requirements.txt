@@ -1,0 +1,9 @@
+# MedSync - Offline Drug Interaction Checker
+# Data & ML
+kagglehub>=0.2.0
+pandas>=2.0.0
+
+# Backend (Node.js / FastAPI - add as needed)
+# python: fastapi uvicorn
+
+# Frontend: React + Tailwind + React Flow (npm install)
