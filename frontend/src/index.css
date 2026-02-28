@@ -1,0 +1,40 @@
+@import "reactflow/dist/style.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-sage: #EAF4F1;
+  --teal: #2E7C7B;
+  --offwhite: #F9FAF8;
+  --mild: #8FBC9A;
+  --moderate: #D4A574;
+  --severe: #C97B7B;
+  --unknown: #9B8FA6;
+}
+
+body {
+  margin: 0;
+  font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-sage);
+  color: #1a2a29;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: rgba(249, 250, 248, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}

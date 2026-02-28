@@ -238,6 +238,14 @@ python run_api.py
 # Or: uvicorn api.main:app --reload --port 8000
 ```
 
+**Run frontend (Calm Intelligence UI)**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open http://localhost:5173. Ensure the API is running on port 8000 (or set `VITE_API_URL` in `frontend/.env`).
+
 **Example request (interactions only)**
 ```bash
 curl -X POST http://localhost:8000/check-interactions \

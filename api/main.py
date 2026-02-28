@@ -69,6 +69,17 @@ class CheckResponse(BaseModel):
     pass  # Dynamic JSON response
 
 
+@app.get("/")
+async def root():
+    """Root – API info and links."""
+    return {
+        "service": "MediSync API",
+        "docs": "/docs",
+        "health": "/health",
+        "message": "Use the frontend at http://localhost:5173 or call POST /check-interactions with X-API-Key.",
+    }
+
+
 @app.get("/health")
 async def health():
     """Health check – no auth required."""
