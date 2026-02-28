@@ -187,6 +187,11 @@ Hybrid Rule-Based + Risk Scoring Engine
 **API Testing Screenshots**  
 *(Add Postman / Thunder Client screenshots here)*
 
+**Testing the backend (local)**  
+- Run automated tests: `python tests/test_interaction_checker.py` — all 8 test groups should **PASS**.  
+- See example inputs/outputs: `python tests/example_runs.py`.  
+- Quick check: `python -m backend.interaction_checker Ibuprofen Warfarin Digoxin` — should print JSON with `pair_results`, `total_score`, `moderate_count`, `overall_risk`.
+
 ---
 
 ## 10. Module-wise Development & Deliverables
