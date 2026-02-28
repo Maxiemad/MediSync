@@ -1,4 +1,4 @@
-# MedSync – Offline Drug Interaction Checker
+# MediSync – Offline Drug Interaction Checker
 
 An offline, graph-based clinical decision support system that detects drug–drug interactions, contraindications, and dosage risks with explainable severity scoring.
 
