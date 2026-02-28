@@ -48,7 +48,7 @@ Polypharmacy significantly increases the risk of adverse drug interactions, cont
 ## 3. Proposed Solution
 
 **Solution Overview**  
-MedSync is a desktop-based, offline Drug Interaction Checker that identifies medication conflicts and visualizes them using a graph model.
+MediSync is a desktop-based, offline Drug Interaction Checker that identifies medication conflicts and visualizes them using a graph model.
 
 **Core Idea**  
 Represent drugs as nodes and interactions as weighted edges. Apply severity-based logic and generate risk scores with clear explanations.
@@ -242,8 +242,8 @@ Hybrid Rule-Based + Risk Scoring Engine
 | Member Name | Role | Responsibilities |
 |-------------|------|------------------|
 | Akanksha | Team Lead | Architecture design, backend logic |
-| Member 2 | Frontend Dev | UI + graph visualization |
-| Member 3 | ML Engineer | Risk scoring + NLP module |
+|  | Frontend Dev | UI + graph visualization |
+| Pushkar Sharma | ML Engineer | Risk scoring + NLP module |
 
 ---
 
