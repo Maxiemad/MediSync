@@ -22,9 +22,10 @@ def run_example(name: str, drugs: list[str]):
 
 
 if __name__ == "__main__":
-    print("MedSync – Example runs (real API output)")
+    print("MediSync – Example runs (real API output)")
     run_example("2 drugs – both exist, no interaction", ["Ibuprofen", "Warfarin"])
     run_example("3 drugs – one known interaction", ["Ibuprofen", "Warfarin", "Digoxin"])
     run_example("Case-insensitive", ["IBUPROFEN", "warfarin"])
     run_example("Drug not found (should error)", ["Ibuprofen", "FakeDrug999"])
     run_example("Too few drugs (should error)", ["Ibuprofen"])
+    run_example("4 drugs – confidence & warning", ["Ibuprofen", "Warfarin", "Digoxin", "Ramipril"])

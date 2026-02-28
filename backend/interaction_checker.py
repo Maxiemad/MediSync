@@ -1,28 +1,29 @@
 """
-MedSync Drug Interaction Checker – production backend logic.
+MediSync Drug Interaction Checker – production backend logic.
 
-- Base severity: Mild=1, Moderate=2
-- Multi-drug risk aggregation: total_score, moderate_count, overall_risk
-- Drug not found / pair not found handling
-- Case-insensitive matching, 2–10 drugs, no duplicate pairs
+- Graph-based model: drugs = nodes, known interactions = weighted edges
+- Dataset preloaded at startup (global cache)
+- Input validation, logging, highest_risk_pair
+- Offline-only, O(1) lookup, FastAPI-compatible
 """
 
 import json
+import logging
+from itertools import combinations
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # Base severity mapping (numeric score per interaction)
 SEVERITY_SCORE = {"Mild": 1, "Moderate": 2}
 
-# Overall risk classification by moderate_count
-def _overall_risk(moderate_count: int) -> str:
-    if moderate_count >= 5:
-        return "Critical"
-    if moderate_count >= 3:
-        return "Severe"
-    if moderate_count >= 1:
-        return "Moderate"
-    return "Mild"
+MIN_DRUGS = 2
+MAX_DRUGS = 10
+
+# Global cached dataset (preloaded at startup)
+_interactions_cache: dict | None = None
+_lower_to_canonical_cache: dict | None = None
 
 
 def _project_root() -> Path:
@@ -37,12 +38,66 @@ def load_interaction_data() -> tuple[dict, dict]:
     data_path = _project_root() / "data" / "drug_interactions.json"
     if not data_path.exists():
         raise FileNotFoundError(
-            f"Interaction data not found. Run: python scripts/load_dataset.py"
+            "Interaction data not found. Run: python scripts/load_dataset.py"
         )
     with open(data_path) as f:
         interactions = json.load(f)
     lower_to_canonical = {name.lower(): name for name in interactions}
     return interactions, lower_to_canonical
+
+
+def init_interaction_data() -> None:
+    """Preload dataset at application startup. Call once (e.g. FastAPI lifespan)."""
+    global _interactions_cache, _lower_to_canonical_cache
+    if _interactions_cache is None:
+        _interactions_cache, _lower_to_canonical_cache = load_interaction_data()
+        logger.info("Drug interaction dataset preloaded")
+
+
+def get_cached_data() -> tuple[dict, dict]:
+    """Return cached dataset. Initializes if not yet loaded."""
+    if _interactions_cache is None or _lower_to_canonical_cache is None:
+        init_interaction_data()
+    return _interactions_cache, _lower_to_canonical_cache
+
+
+def _overall_risk(moderate_count: int) -> str:
+    if moderate_count >= 5:
+        return "Critical"
+    if moderate_count >= 3:
+        return "Severe"
+    if moderate_count >= 1:
+        return "Moderate"
+    return "Mild"
+
+
+def _build_risk_explanation(overall: str, unknown_pairs: int) -> str:
+    base = {
+        "Mild": "Low interaction risk detected. Minimal clinical concern based on available data.",
+        "Moderate": "Moderate interaction risk detected. Monitoring may be required.",
+        "Severe": "Multiple moderate interactions detected. Increased cumulative toxicity risk.",
+        "Critical": "High polypharmacy risk detected. Immediate prescription review recommended.",
+    }.get(overall, "")
+    if unknown_pairs > 0:
+        base += " Note: Some drug pairs lack interaction data in the current offline database."
+    return base
+
+
+def _build_recommendation(overall: str) -> str:
+    return {
+        "Mild": "Continue current regimen. No changes required based on available interaction data.",
+        "Moderate": "Consider monitoring patient response. Review dosing if clinically indicated.",
+        "Severe": "Review prescription and monitor patient. Consider alternatives or dose adjustments.",
+        "Critical": "Immediate prescription review recommended. Consult specialist before continuing.",
+    }.get(overall, "Review prescription and monitor patient.")
+
+
+def _lookup_interaction(interactions: dict, drug_a: str, drug_b: str) -> dict | None:
+    """Check interaction in both directions (A→B and B→A). O(1) lookup."""
+    entry = interactions.get(drug_a, {}).get(drug_b)
+    if entry is not None:
+        return entry
+    return interactions.get(drug_b, {}).get(drug_a)
 
 
 def check_drug_interactions(
@@ -54,16 +109,12 @@ def check_drug_interactions(
     Check interactions for a list of drugs (2–10). Production-ready.
 
     Returns:
-        - On success: { "pair_results": [...], "total_score": int, "moderate_count": int, "overall_risk": str }
-        - On drug not found: { "error": "Drug not found in database" }
+        - On success: full structure with pair_results, graph_data, risk_explanation, etc.
+        - On error: { "error": "..." }
     """
-    MIN_DRUGS = 2
-    MAX_DRUGS = 10
+    interactions, lower_to_canonical = get_cached_data() if (interactions is None or lower_to_canonical is None) else (interactions, lower_to_canonical)
 
-    if interactions is None or lower_to_canonical is None:
-        interactions, lower_to_canonical = load_interaction_data()
-
-    # Normalize input: strip, and resolve to canonical name
+    # 1. Input validation & sanitization
     normalized: list[str] = []
     for d in drug_list:
         if not isinstance(d, str):
@@ -76,67 +127,120 @@ def check_drug_interactions(
             return {"error": "Drug not found in database"}
         normalized.append(key)
 
-    # Deduplicate while preserving order (first occurrence counts)
-    seen_drug = set()
+    # Deduplicate while preserving order
+    seen = set()
     unique_drugs: list[str] = []
     for d in normalized:
-        if d not in seen_drug:
-            seen_drug.add(d)
+        if d not in seen:
+            seen.add(d)
             unique_drugs.append(d)
 
     if len(unique_drugs) < MIN_DRUGS:
-        return {"error": "At least 2 drugs are required"}
+        return {"error": "At least two valid drugs are required."}
     if len(unique_drugs) > MAX_DRUGS:
-        return {"error": f"At most {MAX_DRUGS} drugs are supported"}
+        return {"error": "Maximum 10 drugs allowed per request."}
+
+    n = len(unique_drugs)
+    total_pairs = n * (n - 1) // 2
 
     pair_results: list[dict[str, Any]] = []
+    graph_nodes: list[dict[str, str]] = [{"id": drug} for drug in unique_drugs]
+    graph_edges: list[dict[str, Any]] = []
+
     total_score = 0
     moderate_count = 0
+    known_pairs = 0
+    unknown_pairs = 0
+    highest_risk_pair: dict[str, Any] | None = None
+    highest_severity_value = 0
 
-    for i in range(len(unique_drugs)):
-        for j in range(i + 1, len(unique_drugs)):
-            drug_a, drug_b = unique_drugs[i], unique_drugs[j]
-            pair = (drug_a, drug_b)
+    for drug_a, drug_b in combinations(unique_drugs, 2):
+        entry = _lookup_interaction(interactions, drug_a, drug_b)
 
-            # Lookup: both keys exist; check if interaction exists
-            entry = None
-            if drug_a in interactions and drug_b in interactions.get(drug_a, {}):
-                entry = interactions[drug_a][drug_b]
-
-            if entry is not None:
-                severity = entry.get("severity", "Moderate")
-                description = entry.get("description", "")
-                score = SEVERITY_SCORE.get(severity, 2)
-                total_score += score
-                if severity == "Moderate":
-                    moderate_count += 1
-                pair_results.append({
+        if entry is not None:
+            severity = entry.get("severity", "Moderate")
+            description = entry.get("description", "")
+            weight = SEVERITY_SCORE.get(severity, 2)
+            total_score += weight
+            if severity == "Moderate":
+                moderate_count += 1
+            known_pairs += 1
+            pair_results.append({
+                "drugA": drug_a,
+                "drugB": drug_b,
+                "severity": severity,
+                "description": description or "",
+            })
+            graph_edges.append({
+                "source": drug_a,
+                "target": drug_b,
+                "severity": severity,
+                "weight": weight,
+            })
+            if weight > highest_severity_value:
+                highest_severity_value = weight
+                highest_risk_pair = {
                     "drugA": drug_a,
                     "drugB": drug_b,
                     "severity": severity,
+                    "weight": weight,
                     "description": description or "",
-                })
-            else:
-                pair_results.append({
-                    "drugA": drug_a,
-                    "drugB": drug_b,
-                    "severity": "No Known Interaction",
-                    "description": "No interaction found in the current offline database.",
-                })
+                }
+        else:
+            unknown_pairs += 1
+            pair_results.append({
+                "drugA": drug_a,
+                "drugB": drug_b,
+                "severity": "Unknown",
+                "description": "No interaction data available in the current database.",
+            })
 
     overall = _overall_risk(moderate_count)
+    confidence_percentage = round((known_pairs / total_pairs) * 100, 2) if total_pairs > 0 else 100.0
+    graph_density = round(known_pairs / total_pairs, 2) if total_pairs > 0 else 1.0
 
-    return {
+    result: dict[str, Any] = {
         "pair_results": pair_results,
+        "graph_data": {
+            "nodes": graph_nodes,
+            "edges": graph_edges,
+        },
+        "total_pairs": total_pairs,
+        "known_pairs": known_pairs,
+        "unknown_pairs": unknown_pairs,
+        "confidence_percentage": confidence_percentage,
+        "graph_density": graph_density,
         "total_score": total_score,
         "moderate_count": moderate_count,
         "overall_risk": overall,
+        "highest_risk_pair": highest_risk_pair if highest_risk_pair is not None else {},
+        "risk_explanation": _build_risk_explanation(overall, unknown_pairs),
+        "recommendation": _build_recommendation(overall),
     }
+    if unknown_pairs > 0:
+        result["warning"] = "Some drug pairs are missing interaction data."
+
+    logger.info(
+        "check_interactions: drugs=%s total_pairs=%d known_pairs=%d overall_risk=%s",
+        unique_drugs,
+        total_pairs,
+        known_pairs,
+        overall,
+    )
+
+    return result
+
+
+# Backward compatibility: expose load_interaction_data for scripts that pass data explicitly
+def load_interaction_data_fresh() -> tuple[dict, dict]:
+    """Load data from disk (bypasses cache). Use for testing or one-off scripts."""
+    return load_interaction_data()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     import sys
-    data = load_interaction_data()
+    init_interaction_data()
     drugs = sys.argv[1:] if len(sys.argv) > 1 else ["Ibuprofen", "Warfarin", "Digoxin"]
-    result = check_drug_interactions(drugs, data[0], data[1])
+    result = check_drug_interactions(drugs)
     print(json.dumps(result, indent=2))

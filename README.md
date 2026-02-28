@@ -85,7 +85,8 @@ User → Frontend → Backend → Risk Engine → Database → Response
 ## 5. Database Design
 
 **ER Diagram**  
-*(Add ER diagram image here)*
+
+![ER Diagram](docs/er_diagram.png)
 
 **ER Diagram Description**
 - **Entities:** Drug, Interaction, Contraindication, DosageLimit
@@ -167,10 +168,11 @@ Hybrid Rule-Based + Risk Scoring Engine
 | Layer | Technology |
 |-------|------------|
 | **Frontend** | React, Tailwind CSS, React Flow (graph visualization) |
-| **Backend** | Node.js / FastAPI |
-| **ML/AI** | Python, risk scoring formula, optional NLP parsing module |
-| **Database** | SQLite / JSON (offline) |
-| **Deployment** | Desktop-based application, localhost server |
+| **Backend** | FastAPI (Python) |
+| **ML/AI** | Python, rule-based risk scoring engine |
+| **Database** | JSON (offline) – `data/drug_interactions.json` |
+| **Auth** | API key (`X-API-Key` header) |
+| **Deployment** | Uvicorn, localhost:8000 |
 
 ---
 
@@ -178,19 +180,34 @@ Hybrid Rule-Based + Risk Scoring Engine
 
 **API Endpoints List**
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `POST /check-interactions` | POST | Input: drug list → Output: interaction report + severity |
-| `GET /drug/{name}` | GET | Returns drug metadata |
-| `GET /health` | GET | System health check |
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `POST /check-interactions` | POST | Required | Input: `{"drugs": ["A", "B"]}` → interaction report |
+| `GET /drug/{name}` | GET | Required | Returns drug metadata |
+| `GET /health` | GET | No | System health check |
 
-**API Testing Screenshots**  
-*(Add Postman / Thunder Client screenshots here)*
+**Authentication**  
+All endpoints except `/health` require `X-API-Key` header. Default demo key: `medisync-demo-key-2024`. Set `MEDISYNC_API_KEY` env var for production.
 
-**Testing the backend (local)**  
-- Run automated tests: `python tests/test_interaction_checker.py` — all 8 test groups should **PASS**.  
-- See example inputs/outputs: `python tests/example_runs.py`.  
-- Quick check: `python -m backend.interaction_checker Ibuprofen Warfarin Digoxin` — should print JSON with `pair_results`, `total_score`, `moderate_count`, `overall_risk`.
+**Run API server**
+```bash
+pip install -r requirements.txt
+python run_api.py
+# Or: uvicorn api.main:app --reload --port 8000
+```
+
+**Example request**
+```bash
+curl -X POST http://localhost:8000/check-interactions \
+  -H "X-API-Key: medisync-demo-key-2024" \
+  -H "Content-Type: application/json" \
+  -d '{"drugs": ["Ibuprofen", "Warfarin", "Digoxin"]}'
+```
+
+**Testing**
+- Unit tests: `python tests/test_interaction_checker.py` — 10 test groups
+- API tests: `pytest tests/test_api.py -v` — 9 integration tests
+- Example runs: `python tests/example_runs.py`
 
 ---
 

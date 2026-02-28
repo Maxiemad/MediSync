@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Load the drug-drug-interactions dataset from Kaggle using kagglehub.
-Exports a curated subset as an optimized O(1) lookup map for MedSync.
+Exports a curated subset as an optimized O(1) lookup map for MediSync.
 """
 import json
 from pathlib import Path
@@ -16,7 +16,7 @@ TARGET_INTERACTIONS = 12_000
 def infer_severity(description: str) -> str:
     """
     Infer severity (Mild/Moderate/Severe) from interaction description.
-    Rule-based for explainability - aligns with MedSync architecture.
+    Rule-based for explainability - aligns with MediSync architecture.
     """
     if not description or not isinstance(description, str):
         return "Moderate"
@@ -51,7 +51,7 @@ def infer_severity(description: str) -> str:
 
 
 def load_and_preprocess():
-    """Load from Kaggle and preprocess for MedSync."""
+    """Load from Kaggle and preprocess for MediSync."""
     print("Downloading dataset from Kaggle...")
     dataset_path = kagglehub.dataset_download("mghobashy/drug-drug-interactions")
     csv_path = Path(dataset_path) / "db_drug_interactions.csv"
