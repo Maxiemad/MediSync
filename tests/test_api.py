@@ -104,6 +104,29 @@ def test_get_drug_no_auth():
     assert r.status_code == 401
 
 
+def test_check_pair_interaction_found():
+    """GET /check-pair returns drugA, drugB, severity, description when interaction exists."""
+    r = client.get("/check-pair?drug1=Ibuprofen&drug2=Digoxin", headers=HEADERS)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["drugA"] in ("Ibuprofen", "Digoxin")
+    assert data["drugB"] in ("Ibuprofen", "Digoxin")
+    assert data["drugA"] != data["drugB"]
+    assert "severity" in data
+    assert "description" in data
+    assert "color" in data
+    assert "interaction_found" in data
+
+
+def test_check_pair_unknown():
+    """GET /check-pair returns interaction_found: false when no interaction in DB."""
+    r = client.get("/check-pair?drug1=Ibuprofen&drug2=Warfarin", headers=HEADERS)
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("interaction_found") is False or data.get("severity") == "Unknown"
+    assert "description" in data
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v"])

@@ -108,6 +108,46 @@ async def get_drug(
     }
 
 
+# Severity color map for frontend (same as backend.SEVERITY_COLORS)
+SEVERITY_COLORS = {
+    "Mild": "#22c55e",
+    "Moderate": "#f59e0b",
+    "Severe": "#ef4444",
+    "Critical": "#7f1d1d",
+    "Unknown": "#6b7280",
+}
+
+
+@app.get("/check-pair", response_model=None)
+async def check_pair(
+    drug1: str,
+    drug2: str,
+    x_api_key: Annotated[str | None, Header()] = None,
+):
+    """
+    Interactive: check single pair drug1 + drug2. Returns interaction if found, else Unknown.
+    Use for quick lookup when user selects two drugs.
+    """
+    verify_api_key(x_api_key)
+    result = check_drug_interactions([drug1.strip(), drug2.strip()])
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    # Return the single pair result (drug1, drug2 order normalized)
+    pair_results = result["pair_results"]
+    if len(pair_results) != 1:
+        raise HTTPException(status_code=400, detail="Exactly two drugs required")
+    pr = pair_results[0]
+    return {
+        "drugA": pr["drugA"],
+        "drugB": pr["drugB"],
+        "severity": pr["severity"],
+        "severity_score": pr.get("severity_score"),
+        "description": pr["description"],
+        "color": SEVERITY_COLORS.get(pr["severity"], SEVERITY_COLORS["Unknown"]),
+        "interaction_found": pr["severity"] != "Unknown",
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

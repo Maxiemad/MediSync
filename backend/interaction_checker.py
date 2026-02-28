@@ -15,8 +15,17 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Base severity mapping (numeric score per interaction)
-SEVERITY_SCORE = {"Mild": 1, "Moderate": 2}
+# Base severity mapping (numeric score per interaction) – used for total_score and graph edge weight
+SEVERITY_SCORE = {"Mild": 1, "Moderate": 2, "Severe": 3}
+
+# Color coding for graph (hex) – use in UI for nodes/edges by severity
+SEVERITY_COLORS = {
+    "Mild": "#22c55e",
+    "Moderate": "#f59e0b",
+    "Severe": "#ef4444",
+    "Critical": "#7f1d1d",
+    "Unknown": "#6b7280",
+}
 
 MIN_DRUGS = 2
 MAX_DRUGS = 10
@@ -61,14 +70,23 @@ def get_cached_data() -> tuple[dict, dict]:
     return _interactions_cache, _lower_to_canonical_cache
 
 
-def _overall_risk(moderate_count: int) -> str:
-    if moderate_count >= 5:
+def _overall_risk(moderate_count: int, severe_count: int = 0) -> str:
+    if severe_count >= 2 or moderate_count >= 5:
         return "Critical"
-    if moderate_count >= 3:
+    if severe_count >= 1 or moderate_count >= 3:
         return "Severe"
     if moderate_count >= 1:
         return "Moderate"
     return "Mild"
+
+
+def _confidence_level(confidence_percentage: float) -> str:
+    """Label for UI: High / Medium / Low."""
+    if confidence_percentage >= 80:
+        return "High"
+    if confidence_percentage >= 50:
+        return "Medium"
+    return "Low"
 
 
 def _build_risk_explanation(overall: str, unknown_pairs: int) -> str:
@@ -146,9 +164,11 @@ def check_drug_interactions(
     pair_results: list[dict[str, Any]] = []
     graph_nodes: list[dict[str, str]] = [{"id": drug} for drug in unique_drugs]
     graph_edges: list[dict[str, Any]] = []
+    interactions_not_found: list[dict[str, Any]] = []
 
     total_score = 0
     moderate_count = 0
+    severe_count = 0
     known_pairs = 0
     unknown_pairs = 0
     highest_risk_pair: dict[str, Any] | None = None
@@ -164,11 +184,14 @@ def check_drug_interactions(
             total_score += weight
             if severity == "Moderate":
                 moderate_count += 1
+            elif severity == "Severe":
+                severe_count += 1
             known_pairs += 1
             pair_results.append({
                 "drugA": drug_a,
                 "drugB": drug_b,
                 "severity": severity,
+                "severity_score": weight,
                 "description": description or "",
             })
             graph_edges.append({
@@ -176,6 +199,8 @@ def check_drug_interactions(
                 "target": drug_b,
                 "severity": severity,
                 "weight": weight,
+                "color": SEVERITY_COLORS.get(severity, SEVERITY_COLORS["Unknown"]),
+                "description": (description or "")[:150],
             })
             if weight > highest_severity_value:
                 highest_severity_value = weight
@@ -192,11 +217,18 @@ def check_drug_interactions(
                 "drugA": drug_a,
                 "drugB": drug_b,
                 "severity": "Unknown",
+                "severity_score": None,
+                "description": "No interaction data available in the current database.",
+            })
+            interactions_not_found.append({
+                "drugA": drug_a,
+                "drugB": drug_b,
                 "description": "No interaction data available in the current database.",
             })
 
-    overall = _overall_risk(moderate_count)
+    overall = _overall_risk(moderate_count, severe_count)
     confidence_percentage = round((known_pairs / total_pairs) * 100, 2) if total_pairs > 0 else 100.0
+    confidence_level = _confidence_level(confidence_percentage)
     graph_density = round(known_pairs / total_pairs, 2) if total_pairs > 0 else 1.0
 
     result: dict[str, Any] = {
@@ -204,15 +236,20 @@ def check_drug_interactions(
         "graph_data": {
             "nodes": graph_nodes,
             "edges": graph_edges,
+            "severity_color_map": SEVERITY_COLORS,
         },
         "total_pairs": total_pairs,
         "known_pairs": known_pairs,
         "unknown_pairs": unknown_pairs,
+        "interactions_not_found": interactions_not_found,
         "confidence_percentage": confidence_percentage,
+        "confidence_level": confidence_level,
         "graph_density": graph_density,
         "total_score": total_score,
         "moderate_count": moderate_count,
+        "severe_count": severe_count,
         "overall_risk": overall,
+        "severity_score_map": SEVERITY_SCORE,
         "highest_risk_pair": highest_risk_pair if highest_risk_pair is not None else {},
         "risk_explanation": _build_risk_explanation(overall, unknown_pairs),
         "recommendation": _build_recommendation(overall),
