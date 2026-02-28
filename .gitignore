@@ -7,9 +7,8 @@ venv/
 .env
 
 # Data (large - regenerate via scripts/load_dataset.py)
-# Uncomment if you want to exclude from git:
-# data/drug_interactions.json
-# data/drug_interactions.csv
+data/drug_interactions.json
+.pytest_cache/
 
 # Node
 node_modules/
