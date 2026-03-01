@@ -1,0 +1,10 @@
+{
+  "name": "medisync",
+  "private": true,
+  "description": "MediSync – drug interaction checker (frontend in ./frontend)",
+  "scripts": {
+    "build": "cd frontend && npm ci && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "preview": "cd frontend && npm run preview"
+  }
+}

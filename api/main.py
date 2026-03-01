@@ -9,8 +9,11 @@ Endpoints:
 
 import os
 
-from dotenv import load_dotenv
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 from contextlib import asynccontextmanager
 from typing import Annotated
 

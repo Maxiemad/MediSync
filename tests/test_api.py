@@ -120,8 +120,8 @@ def test_check_pair_interaction_found():
 
 def test_check_pair_unknown():
     """GET /check-pair returns interaction_found: false when no interaction in DB."""
-    # Use two drugs that exist in DB but have no interaction (e.g. Lisinopril, Metformin in sample)
-    r = client.get("/check-pair?drug1=Lisinopril&drug2=Metformin", headers=HEADERS)
+    # Use two drugs that exist in DB but have no interaction (full dataset: Ivacaftor, Rifabutin)
+    r = client.get("/check-pair?drug1=Ivacaftor&drug2=Rifabutin", headers=HEADERS)
     assert r.status_code == 200
     data = r.json()
     assert data.get("interaction_found") is False or data.get("severity") == "Unknown"
