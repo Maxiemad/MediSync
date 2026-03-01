@@ -2,6 +2,11 @@
 
 An offline, graph-based clinical decision support system that detects drug–drug interactions, contraindications, and dosage risks with explainable severity scoring.
 
+## 🎥 Demo Video
+
+Watch the full project demo here:
+
+🔗 [Click here to watch the demo video](https://drive.google.com/file/d/1ixRtlhopUi0O1OMBSMTE-N29s6o2-MQ2/view?usp=sharing)
 ---
 
 ## 1. Problem Statement
