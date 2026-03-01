@@ -2,12 +2,6 @@
 
 An offline, graph-based clinical decision support system that detects drug–drug interactions, contraindications, and dosage risks with explainable severity scoring.
 
-## 🎥 Demo Video
-
-Watch the full project demo here:
-
-🔗 [Click here to watch the demo video](https://drive.google.com/file/d/1ixRtlhopUi0O1OMBSMTE-N29s6o2-MQ2/view?usp=sharing)
----
 
 ## 1. Problem Statement
 
@@ -32,8 +26,14 @@ Polypharmacy significantly increases the risk of adverse drug interactions, cont
 - Limited accessibility in rural areas
 
 ---
+## 2. 🎥 Demo Video
 
-## 2. Problem Understanding & Approach
+Watch the full project demo here:
+
+🔗 [Click here to watch the demo video](https://drive.google.com/file/d/1ixRtlhopUi0O1OMBSMTE-N29s6o2-MQ2/view?usp=sharing)
+---
+
+## 3. Problem Understanding & Approach
 
 **Root Cause Analysis**
 - Fragmented drug interaction knowledge
@@ -50,7 +50,7 @@ Polypharmacy significantly increases the risk of adverse drug interactions, cont
 
 ---
 
-## 3. Proposed Solution
+## 4. Proposed Solution
 
 **Solution Overview**  
 MediSync is a desktop-based, offline Drug Interaction Checker that identifies medication conflicts and visualizes them using a graph model.
@@ -70,7 +70,7 @@ Represent drugs as nodes and interactions as weighted edges. Apply severity-base
 
 ---
 
-## 4. System Architecture
+## 5. System Architecture
 
 **High-Level Flow**  
 User → Frontend → Backend → Risk Engine → Database → Response
@@ -87,7 +87,7 @@ User → Frontend → Backend → Risk Engine → Database → Response
 
 ---
 
-## 5. Database Design
+## 6. Database Design
 
 **ER Diagram**  
 
@@ -108,7 +108,7 @@ The ER diagram is aligned with the **current project structure** (JSON data file
 
 ---
 
-## 6. Dataset Selected
+## 7. Dataset Selected
 
 **Dataset Name**  
 Drug-Drug Interactions (Kaggle)
@@ -185,7 +185,7 @@ Both data files are optional; if missing, the API still returns interaction resu
 
 ---
 
-## 7. Model Selected
+## 8. Model Selected
 
 **Model Name**  
 Hybrid Rule-Based + Risk Scoring Engine
@@ -209,7 +209,7 @@ Hybrid Rule-Based + Risk Scoring Engine
 
 ---
 
-## 8. Technology Stack
+## 9. Technology Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -222,7 +222,7 @@ Hybrid Rule-Based + Risk Scoring Engine
 
 ---
 
-## 9. API Documentation & Testing
+## 10. API Documentation & Testing
 
 **API Endpoints List**
 
@@ -275,7 +275,7 @@ Response includes `dosage_warnings` (e.g. daily dose exceeds max) and `contraind
 
 ---
 
-## 10. Module-wise Development & Deliverables
+## 11. Module-wise Development & Deliverables
 
 | Checkpoint | Deliverables |
 |------------|--------------|
@@ -288,7 +288,7 @@ Response includes `dosage_warnings` (e.g. daily dose exceeds max) and `contraind
 
 ---
 
-## 11. End-to-End Workflow
+## 12. End-to-End Workflow
 
 1. User inputs medications  
 2. Backend fetches drug data  
@@ -296,14 +296,6 @@ Response includes `dosage_warnings` (e.g. daily dose exceeds max) and `contraind
 4. Severity scoring applied  
 5. Conflict graph generated  
 6. Report displayed to user  
-
----
-
-## 12. Demo & Video
-
-- **Live Demo Link:**  
-- **Demo Video Link:**  
-- **GitHub Repository:**  
 
 ---
 
