@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import HeroPills from "./HeroPills";
 import ParticleBackground from "./ParticleBackground";
+import Hero3DScene from "./Hero3DScene";
 
 interface HeroProps {
   onStart: () => void;
@@ -11,6 +12,14 @@ export default function Hero({ onStart }: HeroProps) {
     <section className="relative min-h-[85vh] flex flex-col items-center justify-center overflow-hidden px-4 pt-16 pb-12">
       <ParticleBackground />
       <div className="relative z-10 flex flex-col items-center text-center max-w-2xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="mb-4 w-full max-w-[320px] mx-auto"
+        >
+          <Hero3DScene />
+        </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

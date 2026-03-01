@@ -6,10 +6,18 @@ interface RiskCardProps {
   confidence: number;
   explanation: string;
   recommendation: string;
+  highestRiskPair?: { drugA?: string; drugB?: string; severity?: string; description?: string };
 }
 
-export default function RiskCard({ overallRisk, confidence, explanation, recommendation }: RiskCardProps) {
+export default function RiskCard({
+  overallRisk,
+  confidence,
+  explanation,
+  recommendation,
+  highestRiskPair,
+}: RiskCardProps) {
   const color = severityColors[overallRisk] ?? severityColors.Unknown;
+  const hasHighest = highestRiskPair && (highestRiskPair.drugA ?? highestRiskPair.drugB);
 
   return (
     <motion.div
@@ -37,6 +45,24 @@ export default function RiskCard({ overallRisk, confidence, explanation, recomme
         <div className="flex-1 min-w-[280px] space-y-3">
           <p className="text-slate-700">{explanation}</p>
           <p className="text-slate-600 text-sm font-medium">{recommendation}</p>
+          {hasHighest && (
+            <div
+              className="rounded-xl p-3 text-sm border"
+              style={{ backgroundColor: `${severityColors[highestRiskPair!.severity ?? "Unknown"]}18`, borderColor: `${severityColors[highestRiskPair!.severity ?? "Unknown"]}44` }}
+            >
+              <p className="font-medium text-slate-700 mb-0.5">
+                Highest risk pair: {highestRiskPair!.drugA} + {highestRiskPair!.drugB}
+                {highestRiskPair!.severity && (
+                  <span className="ml-1.5 font-semibold" style={{ color: severityColors[highestRiskPair!.severity] }}>
+                    ({highestRiskPair!.severity})
+                  </span>
+                )}
+              </p>
+              {highestRiskPair!.description && (
+                <p className="text-slate-600 text-xs leading-snug">{highestRiskPair!.description}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

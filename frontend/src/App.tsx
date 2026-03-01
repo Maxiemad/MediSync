@@ -35,6 +35,14 @@ export default function App() {
     setResult(null);
   };
 
+  const goBackToStart = () => {
+    setHasChecked(false);
+    setResult(null);
+    setError(null);
+    setDrugs([]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div
       className="min-h-screen transition-[background-color] duration-[800ms] ease-out"
@@ -70,6 +78,20 @@ export default function App() {
             transition={{ duration: 0.4 }}
             className="pb-24"
           >
+            <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-sage-dark/20 shadow-sm">
+              <div className="max-w-2xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={goBackToStart}
+                  className="flex items-center gap-2 rounded-xl text-teal font-medium px-4 py-2.5 hover:bg-teal/10 transition-colors text-sm"
+                  aria-label="Back to start"
+                >
+                  <BackIcon className="w-4 h-4" />
+                  Back to start
+                </button>
+                <span className="text-slate-500 text-sm">or change drugs below and check again</span>
+              </div>
+            </div>
             <DrugInput
               id="drug-input-top"
               onSubmit={handleSubmit}
@@ -80,8 +102,18 @@ export default function App() {
             />
             {error && (
               <div className="max-w-2xl mx-auto mt-6 px-4">
-                <div className="rounded-2xl bg-white/80 shadow-soft px-6 py-4 text-severe border border-severe/30">
-                  {error}
+                <div className="rounded-2xl bg-red-50/90 border border-red-200 shadow-soft px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-red-500 shrink-0 mt-0.5" aria-hidden>⚠️</span>
+                    <p className="text-red-900 text-sm font-medium">{error}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setError(null)}
+                    className="shrink-0 rounded-lg bg-red-100 text-red-800 px-4 py-2 text-sm font-medium hover:bg-red-200 transition-colors"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               </div>
             )}
@@ -90,10 +122,18 @@ export default function App() {
                 <div className="rounded-2xl glass px-8 py-6 text-slate-600">Checking interactions…</div>
               </div>
             )}
-            {result && <Results data={result} />}
+            {result && <Results data={result} onBackToStart={goBackToStart} />}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function BackIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
   );
 }

@@ -27,17 +27,23 @@ export interface CheckResult {
   overall_risk: string;
   risk_explanation: string;
   recommendation: string;
-  dosage_warnings?: Array<{ drug: string; message: string }>;
+  dosage_warnings?: Array<{ drug: string; message: string; daily_mg?: number; max_daily_mg?: number }>;
   contraindication_warnings?: Array<{ drug: string; condition: string; advice: string; message?: string }>;
   warning?: string;
+  highest_risk_pair?: { drugA?: string; drugB?: string; severity?: string; description?: string };
+}
+
+export interface CheckOptions {
+  drug_doses?: Array<{ drug?: string; name?: string; daily_mg?: number; daily_dose?: number }>;
+  patient_context?: Record<string, unknown>;
 }
 
 /**
  * Check drug interactions using bundled offline logic and data.
  * No network required – works fully offline.
  */
-export function checkInteractions(drugs: string[]): Promise<CheckResult> {
-  const result = checkDrugInteractionsOffline(drugs);
+export function checkInteractions(drugs: string[], options?: CheckOptions): Promise<CheckResult> {
+  const result = checkDrugInteractionsOffline(drugs, options);
   if ("error" in result) {
     return Promise.reject(new Error(result.error));
   }
